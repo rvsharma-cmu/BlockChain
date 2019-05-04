@@ -1,195 +1,256 @@
 import lib.Block;
+import lib.BlockHelper;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.commons.codec.digest.DigestUtils.sha256Hex;
-
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 
 public class BlockChainElement implements BlockChainBase {
-    private int difficulty;
-    private List<Block> blockChain;
-    private Node node;
-    private byte[] newMinedBlockBytes;
-    private Block newMinedBlock;
 
-    public BlockChainElement() {
-        blockChain = new ArrayList<Block>();
-    }
+	private Node currentNode;
+	private List<Block> currentBlockChains;
+	private String proofOfWorkPrefix;
+	private int difficultyOfWork;
+	private Block newBlock;
+	private byte[] byteArrNewBlock;
+	private int nodeId;
 
-    @Override
-    public void setDifficulty(int difficulty) {
-        this.difficulty = difficulty;
-    }
+	public BlockChainElement(Node node_, int nodeId_) {
 
-    /**
-     * Create the genesis block
-     * @return Block the genesis block without previous hash
-     */
-    public Block createGenesisBlock() {
-        long curTimestamp = System.currentTimeMillis() / 1000L;
-        String curPreviousHash = "";
+		currentNode = node_;
+		nodeId = nodeId_;
 
-        // hardcode the sha256 hash (32 Bytes with 20 leading zero bits) and data
-        String curData = "genesis";
-        String curHash = "0";
-        return new Block(curHash, curPreviousHash, curData, curTimestamp);
-    }
+		currentBlockChains = new ArrayList<Block>();
+	}
 
+	public boolean addBlock(Block block) {
 
-    /**
-     * Download the block chain from other nodes
-     */
-    public void downloadBlockchain() {
-        int maxLength = Integer.MIN_VALUE;
-        List<Block> curBlock = new ArrayList<Block>();
-        // loop all the peers
-        for (int i = 0; i < node.getPeerNumber(); i++) {
-            // skip myself
-            if (i == node.getId()) {
-                continue;
-            }
-            // call the getBlockChainDataFromPeer and deserialize
-            try {
-                byte[] resBlockChainBytes = node.getBlockChainDataFromPeer(i);
+		if (block.getData().equals("genesisData")) {
+			this.currentBlockChains.add(block);
+			return true;
+		} else {
+			Block lastBlock = getLastBlock();
+			if (!isValidNewBlock(block, lastBlock)) {
+				return false;
+			} else {
+				this.currentBlockChains.add(block);
+				return true;
+			}
+		}
+	}
 
-                // bypass the type checking. better to use instanceof
-                @SuppressWarnings("unchecked")
-                List<Block> resBlockChain = (ArrayList<Block>) Block.buildBlock(resBlockChainBytes);
-                // choose the longest chain
-                if (resBlockChain.size() > maxLength) {
-                    maxLength = resBlockChain.size();
-                    curBlock = resBlockChain;
-                } else if (resBlockChain.size() == maxLength && !curBlock.isEmpty()) {
-                    // for block chains with the same length, choose the one with the earliest timestamp
-                    long resTimestamp = resBlockChain.get(resBlockChain.size() - 1).getTimestamp();
-                    long curTimestamp = curBlock.get(curBlock.size() - 1).getTimestamp();
-                    if (resTimestamp < curTimestamp) {
-                        curBlock = resBlockChain;
-                    }
-                }
-            } catch (RemoteException e) {
-                System.out.println("[Exception getBlockChainDataFromPeer()] on node: " + i);
-                e.printStackTrace();
-            }
-        }
-        this.blockChain = curBlock;
-    }
+	/**
+	 * Create the hardcoded first block in the chain.
+	 * 
+	 * @return the first block.
+	 */
+	public Block createGenesisBlock() {
+		return new Block("0", "prevHash", "genesisData", System.currentTimeMillis() / 1000L);
+	}
 
-    /**
-     * Get the block chain data and serialize to byte array
-     * @return byte[] the serialized block chain data
-     */
-    public byte[] getBlockchainData() {
-        return Block.blockToData(this.blockChain);
-    }
+	/**
+	 * Create a block based on the string data.
+	 * 
+	 * @param data the data contained in the block
+	 * @return the byte representation of the block.
+	 */
+	public byte[] createNewBlock(String data) {
+		if (proofOfWorkPrefix == null || proofOfWorkPrefix.isEmpty())
+			setDifficulty(difficultyOfWork);
+		Block lastBlock = getLastBlock();
+		long initNonce;
 
-    public byte[] createNewBlock(String data) {
-        String curPrevious = getLastBlock().getHash();
-        long nonce = 0;
-        String newHash;
-        while (true) {
-            String tmpString = curPrevious + String.valueOf(nonce) + data;
-            //System.out.println("tmp string is " + tmpString);
-            String tmpHash = sha256Hex(tmpString);
-            if(tmpHash.startsWith("00000")) {
-                newHash = tmpHash;
-                //System.out.println("get the correct nonce: " + String.valueOf(nonce));
-                break;
-            }
-            nonce++;
-        }
-        long curTimestamp = System.currentTimeMillis() / 1000L;
-        //System.out.println("new hash is: " + newHash);
-        //System.out.println("new block has nonce: " + String.valueOf(nonce));
-        newMinedBlock = new Block(newHash, curPrevious, data, curTimestamp);
-        newMinedBlock.setNonce(nonce);
-        newMinedBlockBytes = Block.blockToData(newMinedBlock);
-        return newMinedBlockBytes;
-    }
+		String previousHash = lastBlock.getHash();
+		String currentBlockHash = "";
 
-    public boolean addBlock(Block block) {
-        try {
-            if (block.getData().equals("genesis")) {
-                this.blockChain.add(block);
-                return true;
-            }
-        } catch(Exception e) {
-            System.out.println("catch add block exception at getData: " + node.getId());
-            e.printStackTrace();
-        }
-        try{
-            if (isValidNewBlock(block, getLastBlock())) {
-                this.blockChain.add(block);
-                return true;
-            }
-        } catch(Exception e) {
-            System.out.println("catch add block exception at isValidNewBlock: " + node.getId());
-            e.printStackTrace();
-        }
-        return false;
-    }
+		for (initNonce = Long.MIN_VALUE; initNonce < Long.MAX_VALUE; initNonce++) {
+			String newHashForData = DigestUtils.sha256Hex(previousHash + initNonce + data);
+			if (!newHashForData.startsWith(proofOfWorkPrefix)) {
+				continue;
+			} else {
+				currentBlockHash = newHashForData;
+				break;
+			}
+		}
+		newBlock = new Block(currentBlockHash, previousHash, data, System.currentTimeMillis() / 1000L);
 
-    /**
-     * Get the last block of the block chain.
-     */
-    public Block getLastBlock() {
-        return this.blockChain.get(blockChain.size() - 1);
-    }
+		newBlock.setNonce(initNonce);
+		byteArrNewBlock = BlockHelper.blockToData(newBlock);
 
-    /**
-     * Return the length of current block chain
-     */
-    public int getBlockChainLength() {
-        System.out.println("current length of node " + node.getId() + " is " + this.blockChain.size());
-        return this.blockChain.size();
-    }
+		return byteArrNewBlock;
+	}
 
-    public void setNode(Node node) {
-        this.node = node;
-    }
+	/**
+	 * broadcast the new block to all the peer in the network
+	 * 
+	 * @return whether the node is added into the chain or not.
+	 */
+	public boolean broadcastNewBlock() {
 
-    public boolean isValidNewBlock(Block newBlock, Block prevBlock) {
-        // check the previous hash
-        if (!newBlock.getPreviousHash().equals(prevBlock.getHash())) {
-            return false;
-        }
-        // check the correctness of hashcode
-        String curString = newBlock.getPreviousHash() + String.valueOf(newBlock.getNonce()) + newBlock.getData();
-        String curHash = sha256Hex(curString);
-        if (!curHash.equals(newBlock.getHash()) || !curHash.startsWith("00000")) {
-            return false;
-        }
-        // is valid
-        return true;
-    }
+		boolean added = false;
 
-    public boolean broadcastNewBlock() {
-        // send the new block to peers
-        if(newMinedBlock == null) {
-            return false;
-        }
-        int agreeCount = 0;
-        for (int i = 0; i < node.getPeerNumber(); i++) {
-            // skip myself
-            if (i == node.getId()) {
-                continue;
-            }
-            try {
-                System.out.println("send new block to peer: " + i);
-                if (node.broadcastNewBlockToPeer(i, newMinedBlockBytes)) {
-                    agreeCount++;
-                }
-            } catch (RemoteException e) {
-                System.out.println("[Remote exception in broadcastNewBlock, node: ]" + node.getId());
-            }
-        }
-        if (agreeCount == node.getPeerNumber() - 1) {
-            this.blockChain.add(newMinedBlock);
-            return true;
-        }
-        return false;
-    }
+		int numberOfPeers = currentNode.getPeerNumber();
+		int vote = 0;
+		for (int i = 0; i < numberOfPeers; i++) {
+			if (i != currentNode.getId()) {
+				try {
+					boolean broadcast = currentNode.broadcastNewBlockToPeer(i, byteArrNewBlock);
+					if (broadcast)
+						vote++;
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		if (numberOfPeers == vote + 1) {
+			currentBlockChains.add(newBlock);
+			added = true;
+		}
+		return added;
+	}
+
+	@Override
+	public void setDifficulty(int difficulty) {
+		this.difficultyOfWork = difficulty;
+
+		if (difficulty <= 0) {
+			throw new IllegalArgumentException("Wrong difficulty passed");
+		}
+		this.difficultyOfWork = difficulty;
+		// System.out.println("difficulty is " + difficultyOfWork);
+		// calculate Prefix now
+		String prefix = "";
+		for (int i = 0; i < difficulty / 4; i++) {
+			prefix += "0";
+		}
+		this.proofOfWorkPrefix = prefix;
+		//createGenesisBlock();
+	}
+
+	/**
+	 * get the byte representation of the blockchain
+	 * 
+	 * @return the byte representation
+	 */
+	@Override
+	public byte[] getBlockchainData() {
+
+		byte[] output = BlockHelper.blockToData(this.currentBlockChains);
+		return output;
+	}
+
+	/**
+	 * Download the block chain from other nodes
+	 */
+	public void downloadBlockchain() {
+		int numberOfPeers = currentNode.getPeerNumber();
+		List<Block> curBlock = new ArrayList<Block>();
+
+		int max = curBlock.size();
+
+		for (int i = 0; i < numberOfPeers; i++) {
+			if (i != currentNode.getId()) {
+				try {
+					List<Block> resBlockChain = BlockHelper.buildBlock(currentNode.getBlockChainDataFromPeer(i));
+					if (resBlockChain.size() < max)
+						continue;
+					else if (resBlockChain.size() > max) {
+
+						curBlock = resBlockChain;
+
+						max = resBlockChain.size();
+					} else {
+
+						if (getTimeStamps(resBlockChain) < getTimeStamps(curBlock)) {
+							curBlock = resBlockChain;
+						}
+					}
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		this.currentBlockChains = curBlock;
+	}
+
+	public void setNode(Node node) {
+		if (node == null) {
+			throw new IllegalArgumentException("illegal argument while setting node");
+		}
+
+		this.currentNode = node;
+	}
+
+	/**
+	 * Validate the new block based on the block before that.
+	 * 
+	 * @param newBlock  the new block
+	 * @param prevBlock the block before that.
+	 * @return valid or not
+	 */
+	@Override
+	public boolean isValidNewBlock(Block newBlock, Block prevBlock) {
+		/*
+		 * To add a new block mined by others, the validity of this block needs to be
+		 * verified. For a new block, it has to have the index right after the last
+		 * block in the chain. Also, the previous hash value should be the same to the
+		 * hash value contained in the chain. And the hash value contained in the new
+		 * block itself should be correctly calculated. If there are multiple new blocks
+		 * broadcasted, we want to choose the block containing the earliest timestamp.
+		 */
+		String prevBlockHash = prevBlock.getHash();
+		String newBlockHash = newBlock.getHash();
+		String newBlockPrevHash = newBlock.getPreviousHash();
+
+		if (!newBlockPrevHash.equals(prevBlockHash)) {
+			return false;
+		}
+
+		long newBlockNonce = newBlock.getNonce();
+
+		String data = newBlock.getData();
+		String curHash = DigestUtils.sha256Hex(newBlockPrevHash + String.valueOf(newBlockNonce) + data);
+
+		if (!curHash.startsWith(proofOfWorkPrefix))
+			return false;
+
+		if (!curHash.equals(newBlockHash))
+			return false;
+
+		return true;
+	}
+
+	public Block getLastBlock() {
+
+		if (currentBlockChains == null || currentBlockChains.size() == 0) {
+			System.out.println("block chain is null or no element present");
+			return null;
+		}
+
+		return this.currentBlockChains.get(currentBlockChains.size() - 1);
+	}
+
+	public int getBlockChainLength() {
+
+		int length = currentBlockChains.size();
+		return length;
+
+	}
+
+	/**
+	 * @param block
+	 * @return
+	 */
+	public long getTimeStamps(List<Block> block) {
+		int size = block.size() - 1;
+		return block.get(size).getTimestamp();
+	}
 
 }

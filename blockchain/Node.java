@@ -18,7 +18,7 @@ public class Node implements MessageHandling {
 	private int wallet;
 	BlockChainBase blockChainManager;
 	private final Object lock = new Object();
-	private static final int difficulty = 20;
+	private final int difficulty = 20;
 
 	/**
 	 * Node constructor
@@ -36,9 +36,8 @@ public class Node implements MessageHandling {
 		// TODO: instantiate your blockchain implementation and set the difficulty to
 		// 20.
 
-		blockChainManager = new BlockChainElement();
-		blockChainManager.setDifficulty(20);
-		blockChainManager.setNode(this);
+		blockChainManager = new BlockChainElement(this, id);
+		blockChainManager.setDifficulty(difficulty);
 		
 		Block newGenesis = blockChainManager.createGenesisBlock();
 		blockChainManager.addBlock(newGenesis);
@@ -56,23 +55,23 @@ public class Node implements MessageHandling {
 		MessageType type = null;
 		Block newBlock = null;
 		switch (message.getType()) {
-		// for blockchain to use
-		case ON_BROADCAST_NEW_BLOCK:
-			data = message.getBody();
-			System.out.println("Camehere0");
-			newBlock = Block.fromString(new String(data));
-			System.out.println("Camehere1");
-			boolean agree = blockChainManager.addBlock(newBlock);
-			if (agree) {
-				type = MessageType.AGREE_BROADCAST_NEW_BLOCK;
-			} else
-				type = MessageType.DISAGREE_BROADCAST_NEW_BLOCK;
-			break;
-		case GET_BLOCKCHAIN_DATA:
-			type = MessageType.GET_BLOCKCHAIN_DATA;
-			data = blockChainManager.getBlockchainData();
-			break;
-		default:
+			// for blockchain to use
+			case ON_BROADCAST_NEW_BLOCK:
+				data = message.getBody();
+				//System.out.println("Camehere0");
+				newBlock = Block.fromString(new String(data));
+				//System.out.println("Camehere1");
+				boolean agree = blockChainManager.addBlock(newBlock);
+				if (agree) {
+					type = MessageType.AGREE_BROADCAST_NEW_BLOCK;
+				} else
+					type = MessageType.DISAGREE_BROADCAST_NEW_BLOCK;
+				break;
+			case GET_BLOCKCHAIN_DATA:
+				type = MessageType.GET_BLOCKCHAIN_DATA;
+				data = blockChainManager.getBlockchainData();
+				break;
+			default:
 		}
 
 		Message reply = new Message(type, message.getDest(), message.getSrc(), data);

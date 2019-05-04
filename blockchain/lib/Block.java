@@ -13,75 +13,74 @@ import org.apache.commons.codec.binary.Hex;
 /**
  * Block Class, the element to compose a Blockchain.
  */
-public class Block implements Serializable{
+public class Block implements Serializable {
 
-    /**
+	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
 
 	private String hash;
 
-    private String previousHash;
+	private String previousHash;
 
-    private String data;
+	private String data;
 
-    private long timestamp;
+	private long timestamp;
 
-    private int difficulty;
+	private int difficulty;
 
-    private long nonce;
-    
-    private int blockPosition; 
+	private long nonce;
 
-    public Block() {}
+	private int blockPosition;
 
-    public Block(String hash, String previousHash, String data,
-                 long timestamp) {
-        this.hash = hash;
-        this.previousHash = previousHash;
-        this.data = data;
-        this.timestamp = timestamp;
-    }
+	public Block() {
+	}
 
-    public long getNonce() {
-        return nonce;
-    }
+	public Block(String hash, String previousHash, String data, long timestamp) {
+		this.hash = hash;
+		this.previousHash = previousHash;
+		this.data = data;
+		this.timestamp = timestamp;
+	}
 
-    public void setNonce(long nonce) {
-        this.nonce = nonce;
-    }
+	public long getNonce() {
+		return nonce;
+	}
 
-    public int getDifficulty() {
-        return difficulty;
-    }
+	public void setNonce(long nonce) {
+		this.nonce = nonce;
+	}
 
-    public void setDifficulty(int difficulty) {
-        this.difficulty = difficulty;
-    }
+	public int getDifficulty() {
+		return difficulty;
+	}
 
-    public String getHash() {
-        return hash;
-    }
+	public void setDifficulty(int difficulty) {
+		this.difficulty = difficulty;
+	}
 
-    public void setHash(String hash) {
-        this.hash = hash;
-    }
+	public String getHash() {
+		return hash;
+	}
 
-    public String getPreviousHash() {
-        return previousHash;
-    }
+	public void setHash(String hash) {
+		this.hash = hash;
+	}
 
-    public String getData() {
-        return data;
-    }
+	public String getPreviousHash() {
+		return previousHash;
+	}
 
-    public long getTimestamp() {
-        return timestamp;
-    }
+	public String getData() {
+		return data;
+	}
 
+	public long getTimestamp() {
+		return timestamp;
+	}
 
-    /**
+	/**
 	 * @return the blockPosition
 	 */
 	public int getBlockPosition() {
@@ -95,57 +94,8 @@ public class Block implements Serializable{
 		this.blockPosition = blockPosition;
 	}
 
-	public static Block fromString(String s){
-        
-    	Block result;
-//    	if(s.isEmpty())
-//    		return result; 
-    	
-    	byte[] bytes = s.getBytes();
-		result = (Block) buildBlock(bytes);
-        return result;
-    }
-    
-    public static Object buildBlock (byte[] arr) {
-        Object res = null;
-        if (arr == null) {
-            return res;
-        }
-        try {
-            byte[] cur = Hex.decodeHex(new String(arr));
-            ByteArrayInputStream bis = new ByteArrayInputStream(cur);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            res = ois.readObject();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (DecoderException e){
-            e.printStackTrace();
-        }
-        return res;
-    }
-    
-    public static byte[] blockToData(Object block) {
-        byte[] res = null;
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream out = new ObjectOutputStream(bos);
-            out.writeObject(block);
-            res = Hex.encodeHexString(bos.toByteArray()).getBytes();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return res;
-    }
-    
-    @Override
-    public String toString() {
-    	
-    	String output = "";
-    	byte[] result = blockToData(this);
-    	output = result.toString();
-    	return output;
-    }
+	public static Block fromString(String s) {
+		return (Block) BlockHelper.buildBlockFromArray(s.getBytes());
+	}
 
 }
