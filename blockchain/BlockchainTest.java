@@ -12,7 +12,7 @@ public class BlockchainTest {
     /*  The tester generously allows solutions to complete elections in one second
      *  (much more than the paper's range of timeouts).
      */
-    private static int BROADCAST_TIME = 10000;
+    private static int BROADCAST_TIME = 1000;
 
     private static void TestInitialState() throws Exception {
 
