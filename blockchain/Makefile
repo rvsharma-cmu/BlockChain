@@ -1,5 +1,7 @@
 all:
 ifeq ($(OS),Windows_NT)
+	#setting classpath
+	export CLASSPATH=$CLASSPATH:.:hash/commons-codec-1.11.jar
 	# assume windows
 	javac -Xlint -g *.java
 else
@@ -17,5 +19,3 @@ alltests:
 	java BlockchainTest Basic-MultiMining 8000
 	java BlockchainTest Consensus 8000
 	java BlockchainTest Reconnect-Consensus 8000
-
- 

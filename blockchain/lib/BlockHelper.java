@@ -18,13 +18,16 @@ public class BlockHelper {
             byte[] cur = Hex.decodeHex(new String(byteArray));
             ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(cur));
             block = (Block) ois.readObject();
-        } catch (IOException e) {
+        } catch (DecoderException e){
+        	System.out.println("invalid data, or characters outside of the expected range");
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (DecoderException e){
-            e.printStackTrace();
-        }
+        	System.out.println("Class cannot be found");
+			e.printStackTrace();
+		} catch (IOException e) {
+			System.out.println("IO error occured while reading the input stream");
+			e.printStackTrace();
+		}
         return block;
     }
 	
@@ -52,11 +55,14 @@ public class BlockHelper {
             byte[] cur = Hex.decodeHex(new String(byteArray));
             ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(cur));
             output = (List<Block>) ois.readObject();
-        } catch (IOException e) {
+        } catch (DecoderException e){
+        	System.out.println("invalid data, or characters outside of the expected range");
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
+        	System.out.println("Class cannot be found");
             e.printStackTrace();
-        } catch (DecoderException e){
+        } catch (IOException e) {
+        	System.out.println("IO error occured while reading the input stream");
             e.printStackTrace();
         }
         return output;
