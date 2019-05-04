@@ -39,9 +39,6 @@ public class Node implements MessageHandling {
 		blockChainManager = new BlockChainElement(this, id);
 		blockChainManager.setDifficulty(difficulty);
 		
-		Block newGenesis = blockChainManager.createGenesisBlock();
-		blockChainManager.addBlock(newGenesis);
-
 	}
 
 	/**

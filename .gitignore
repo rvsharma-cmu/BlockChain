@@ -1,3 +1,6 @@
 /bin/
 
+# ignore all class files
 *.class
+blockchain/*.class
+blockchain/lib/*.class

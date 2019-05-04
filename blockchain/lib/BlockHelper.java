@@ -11,30 +11,13 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
 public class BlockHelper {
-
-    public static byte[] blockToData (Object obj) {
-        byte[] res = null;
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream out = new ObjectOutputStream(bos);
-            out.writeObject(obj);
-            res = Hex.encodeHexString(bos.toByteArray()).getBytes();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return res;
-    }
-
-	public static Object buildBlockFromArray (byte[] byteArray) {
-        Object res = null;
-        if (byteArray == null) {
-            return null;
-        }
+	public static Block buildBlockFromArray (byte[] byteArray) {
+        Block block = null;
+        
         try {
             byte[] cur = Hex.decodeHex(new String(byteArray));
-            ByteArrayInputStream bis = new ByteArrayInputStream(cur);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            res = ois.readObject();
+            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(cur));
+            block = (Block) ois.readObject();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
@@ -42,21 +25,33 @@ public class BlockHelper {
         } catch (DecoderException e){
             e.printStackTrace();
         }
-        return res;
+        return block;
+    }
+	
+	public static byte[] blockToData (Object block) {
+        String hexRepresentation = "";
+        
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ObjectOutputStream objOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+            objOutputStream.writeObject(block);
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+			hexRepresentation = Hex.encodeHexString(byteArray);
+			
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return hexRepresentation.getBytes();
     }
     
     @SuppressWarnings("unchecked")
-	public static List<Block> buildBlock(byte[] arr){
+	public static List<Block> buildBlock(byte[] byteArray){
 
-        Object res = null;
-        if (arr == null) {
-            return null;
-        }
+        List<Block> output = null;
         try {
-            byte[] cur = Hex.decodeHex(new String(arr));
-            ByteArrayInputStream bis = new ByteArrayInputStream(cur);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            res = ois.readObject();
+            byte[] cur = Hex.decodeHex(new String(byteArray));
+            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(cur));
+            output = (List<Block>) ois.readObject();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
@@ -64,7 +59,7 @@ public class BlockHelper {
         } catch (DecoderException e){
             e.printStackTrace();
         }
-        return (List<Block>)res;
+        return output;
     }
 
 }

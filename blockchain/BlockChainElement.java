@@ -28,6 +28,7 @@ public class BlockChainElement implements BlockChainBase {
 		nodeId = nodeId_;
 
 		currentBlockChains = new ArrayList<Block>();
+		currentBlockChains.add(createGenesisBlock());
 	}
 
 	public boolean addBlock(Block block) {

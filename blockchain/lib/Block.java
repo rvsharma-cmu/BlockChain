@@ -95,7 +95,9 @@ public class Block implements Serializable {
 	}
 
 	public static Block fromString(String s) {
-		return (Block) BlockHelper.buildBlockFromArray(s.getBytes());
+		byte[] bytes = s.getBytes();
+		Block block = BlockHelper.buildBlockFromArray(bytes);
+		return block;
 	}
 
 }
